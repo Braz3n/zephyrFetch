@@ -10,6 +10,8 @@ entity fetchUnit is
         opCode          : in std_logic_vector(fetchOpWidth-1 downto 0);
         cpuAddrBus      : in std_logic_vector(fetchAddrBusWidth-1 downto 0);
         cpuDataBus      : inout std_logic_vector(fetchDataBusWidth-1 downto 0);
+        memEn           : out std_logic;
+        memWriteEn      : out std_logic;
         memAddrBus      : out std_logic_vector(fetchAddrBusWidth-1 downto 0);
         memDataBus      : inout std_logic_vector(fetchDataBusWidth-1 downto 0);
         instructionBus  : out std_logic_vector(fetchInstructionWidth-1 downto 0)
@@ -19,6 +21,20 @@ end fetchUnit;
 architecture rtl of fetchUnit is
 begin
     memAddrBus <= cpuAddrBus;
+
+    enableSignals : process (opCode) is
+    begin
+        if opCode = fetchLDI or opCode = fetchLDD then
+            memEn <= '1';
+            memWriteEn <= '0';
+        elsif opcode = fetchSTD then
+            memEn <= '1';
+            memWriteEn <= '1';
+        else
+            memEn <= '0';
+            memWriteEn <= '0';
+        end if;
+    end process;
 
     readFromMemory : process (clk) is
     begin

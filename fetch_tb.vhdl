@@ -14,6 +14,8 @@ architecture behavioural of fetch_tb is
         opCode          : in std_logic_vector(fetchOpWidth-1 downto 0);
         cpuAddrBus      : in std_logic_vector(fetchAddrBusWidth-1 downto 0);
         cpuDataBus      : inout std_logic_vector(fetchDataBusWidth-1 downto 0);
+        memEn           : out std_logic;
+        memWriteEn      : out std_logic;
         memAddrBus      : out std_logic_vector(fetchAddrBusWidth-1 downto 0);
         memDataBus      : inout std_logic_vector(fetchDataBusWidth-1 downto 0);
         instructionBus  : out std_logic_vector(fetchInstructionWidth-1 downto 0)
@@ -26,6 +28,8 @@ architecture behavioural of fetch_tb is
     signal opCode           : std_logic_vector(fetchOpWidth-1 downto 0);
     signal cpuAddrBus       : std_logic_vector(fetchAddrBusWidth-1 downto 0);
     signal cpuDataBus       : std_logic_vector(fetchDataBusWidth-1 downto 0);
+    signal memEn            : std_logic;
+    signal memWriteEn       : std_logic;
     signal memAddrBus       : std_logic_vector(fetchAddrBusWidth-1 downto 0);
     signal memDataBus       : std_logic_vector(fetchDataBusWidth-1 downto 0);
     signal instructionBus   : std_logic_vector(fetchInstructionWidth-1 downto 0);
@@ -37,6 +41,8 @@ begin
         opCode => opCode,
         cpuAddrBus => cpuAddrBus,
         cpuDataBus => cpuDataBus,
+        memEn => memEn,
+        memWriteEn => memWriteEn,
         memAddrBus => memAddrBus,
         memDataBus => memDataBus,
         instructionBus => instructionBus
@@ -55,6 +61,8 @@ begin
             opCode          : std_logic_vector (fetchOpWidth-1 downto 0);
             cpuDataBus      : std_logic_vector (fetchDataBusWidth-1 downto 0);
             cpuAddrBus      : std_logic_vector (fetchAddrBusWidth-1 downto 0);
+            memEn           : std_logic;
+            memWriteEn      : std_logic;
             memDataBus      : std_logic_vector (fetchDataBusWidth-1 downto 0);
             memAddrBus      : std_logic_vector (fetchAddrBusWidth-1 downto 0);
             instructionBus  : std_logic_vector (fetchInstructionWidth-1 downto 0);
@@ -64,12 +72,12 @@ begin
         
         constant test_pattern : test_pattern_array :=
         (
-            (fetchNOP, "--------", x"0000", "--------", "ZZZZZZZZZZZZZZZZ", "--------"),  -- NOP
-            (fetchNOP, "--------", x"0100", "--------", "ZZZZZZZZZZZZZZZZ", "--------"),  -- NOP
-            (fetchLDI, "--------", x"0000", "01010101", "ZZZZZZZZZZZZZZZZ", "ZZZZZZZZ"),  -- Load Instruction
-            (fetchLDD, "ZZZZZZZZ", x"0000", "01100110", "ZZZZZZZZZZZZZZZZ", "--------"),  -- Load Data
-            (fetchLDD, "ZZZZZZZZ", x"FF10", "11100100", "ZZZZZZZZZZZZZZZZ", "--------"),  -- Load Data
-            (fetchSTD, "01110111", x"FF10", "ZZZZZZZZ", "ZZZZZZZZZZZZZZZZ", "--------")  -- Store Data
+            (fetchNOP, "--------", x"0000", '0', '0', "--------", "ZZZZZZZZZZZZZZZZ", "--------"),  -- NOP
+            (fetchNOP, "--------", x"0100", '0', '0', "--------", "ZZZZZZZZZZZZZZZZ", "--------"),  -- NOP
+            (fetchLDI, "--------", x"0000", '1', '0', "01010101", "ZZZZZZZZZZZZZZZZ", "ZZZZZZZZ"),  -- Load Instruction
+            (fetchLDD, "ZZZZZZZZ", x"0000", '1', '0', "01100110", "ZZZZZZZZZZZZZZZZ", "--------"),  -- Load Data
+            (fetchLDD, "ZZZZZZZZ", x"FF10", '1', '0', "11100100", "ZZZZZZZZZZZZZZZZ", "--------"),  -- Load Data
+            (fetchSTD, "01110111", x"FF10", '1', '1', "ZZZZZZZZ", "ZZZZZZZZZZZZZZZZ", "--------")  -- Store Data
         );
     begin
 
@@ -92,6 +100,16 @@ begin
             assert memAddrBus = cpuAddrBus
                 report "Bad 'Memory Address Bus' value " & to_string(memAddrBus) & 
                     ", expected " & to_string(test_pattern(i).cpuAddrBus) &
+                    " at test pattern index " & integer'image(i) severity error;
+
+            assert memEn = test_pattern(i).memEn
+                report "Bad 'Memory Enable' value " & to_string(memEn) & 
+                    ", expected " & to_string(test_pattern(i).memEn) &
+                    " at test pattern index " & integer'image(i) severity error;
+
+            assert memWriteEn = test_pattern(i).memWriteEn
+                report "Bad 'Memory Address Bus' value " & to_string(memWriteEn) & 
+                    ", expected " & to_string(test_pattern(i).memWriteEn) &
                     " at test pattern index " & integer'image(i) severity error;
 
             if opcode = fetchLDI then
