@@ -12,6 +12,7 @@ architecture behavioural of fetch_tb is
     port (
         clk             : in std_logic;
         opCode          : in std_logic_vector(fetchOpWidth-1 downto 0);
+        addrBusLock     : in std_logic;
         cpuAddrBus      : in std_logic_vector(fetchAddrBusWidth-1 downto 0);
         cpuDataBus      : inout std_logic_vector(fetchDataBusWidth-1 downto 0);
         memEn           : out std_logic;
@@ -26,6 +27,7 @@ architecture behavioural of fetch_tb is
 
     signal clk              : std_logic;
     signal opCode           : std_logic_vector(fetchOpWidth-1 downto 0);
+    signal addrBusLock      : std_logic;
     signal cpuAddrBus       : std_logic_vector(fetchAddrBusWidth-1 downto 0);
     signal cpuDataBus       : std_logic_vector(fetchDataBusWidth-1 downto 0);
     signal memEn            : std_logic;
@@ -39,6 +41,7 @@ begin
     (
         clk => clk,
         opCode => opCode,
+        addrBusLock => addrBusLock,
         cpuAddrBus => cpuAddrBus,
         cpuDataBus => cpuDataBus,
         memEn => memEn,
@@ -59,6 +62,7 @@ begin
     process
         type test_pattern_type is record
             opCode          : std_logic_vector (fetchOpWidth-1 downto 0);
+            addrBusLock     : std_logic;
             cpuDataBus      : std_logic_vector (fetchDataBusWidth-1 downto 0);
             cpuAddrBus      : std_logic_vector (fetchAddrBusWidth-1 downto 0);
             memEn           : std_logic;
@@ -72,58 +76,53 @@ begin
         
         constant test_pattern : test_pattern_array :=
         (
-            (fetchNOP, "--------", x"0000", '0', '0', "--------", "ZZZZZZZZZZZZZZZZ", "--------"),  -- NOP
-            (fetchNOP, "--------", x"0100", '0', '0', "--------", "ZZZZZZZZZZZZZZZZ", "--------"),  -- NOP
-            (fetchLDI, "--------", x"0000", '1', '0', "01010101", "ZZZZZZZZZZZZZZZZ", "ZZZZZZZZ"),  -- Load Instruction
-            (fetchLDD, "ZZZZZZZZ", x"0000", '1', '0', "01100110", "ZZZZZZZZZZZZZZZZ", "--------"),  -- Load Data
-            (fetchLDD, "ZZZZZZZZ", x"FF10", '1', '0', "11100100", "ZZZZZZZZZZZZZZZZ", "--------"),  -- Load Data
-            (fetchSTD, "01110111", x"FF10", '1', '1', "ZZZZZZZZ", "ZZZZZZZZZZZZZZZZ", "--------")  -- Store Data
+            (fetchNOP, '0', "--------", x"0000", '0', '0', "--------", "----------------", "--------"),  -- NOP
+            (fetchNOP, '0', "--------", x"0100", '0', '0', "--------", "----------------", "--------"),  -- NOP
+            (fetchLDI, '0', "--------", x"0000", '1', '0', "01010101", "----------------", "01010101"),  -- Load Instruction
+            (fetchLDD, '1', "ZZZZZZZZ", x"0000", '1', '0', "01100110", x"0000",            "01010101"),  -- Load Data
+            (fetchLDD, '1', "ZZZZZZZZ", x"FF10", '1', '0', "11100100", x"FF10",            "01010101"),  -- Load Data
+            (fetchLDI, '0', "--------", x"0000", '1', '0', "11001001", "----------------", "11001001"),  -- Load Instruction
+            (fetchSTD, '1', "01110111", x"FF10", '1', '1', "ZZZZZZZZ", x"FF10",            "11001001")   -- Store Data
         );
     begin
 
         for i in test_pattern'range loop
             -- Set input signals
             opCode <= test_pattern(i).opCode;
+            addrBusLock <= test_pattern(i).addrBusLock;
             cpuDataBus <= test_pattern(i).cpuDataBus;
             cpuAddrBus <= test_pattern(i).cpuAddrBus;
             memDataBus <= test_pattern(i).memDataBus;
-            memAddrBus <= test_pattern(i).memAddrBus;
-            instructionBus <= test_pattern(i).instructionBus;
-            -- if opcode = fetch or opcode = aluRDT or opcode = aluRDF then
-            --     dataBus <= (others => 'Z'); 
-            -- else 
-            --     dataBus <= test_pattern(i).dataBus;
-            -- end if;
             
             wait for 20 ns;
             
-            assert memAddrBus = cpuAddrBus
+            assert std_match(memAddrBus, test_pattern(i).memAddrBus)
                 report "Bad 'Memory Address Bus' value " & to_string(memAddrBus) & 
-                    ", expected " & to_string(test_pattern(i).cpuAddrBus) &
+                    ", expected " & to_string(test_pattern(i).memAddrBus) &
                     " at test pattern index " & integer'image(i) severity error;
 
-            assert memEn = test_pattern(i).memEn
+            assert std_match(memEn, test_pattern(i).memEn)
                 report "Bad 'Memory Enable' value " & to_string(memEn) & 
                     ", expected " & to_string(test_pattern(i).memEn) &
                     " at test pattern index " & integer'image(i) severity error;
 
-            assert memWriteEn = test_pattern(i).memWriteEn
+            assert std_match(memWriteEn, test_pattern(i).memWriteEn)
                 report "Bad 'Memory Address Bus' value " & to_string(memWriteEn) & 
                     ", expected " & to_string(test_pattern(i).memWriteEn) &
                     " at test pattern index " & integer'image(i) severity error;
 
-            if opcode = fetchLDI then
-                assert instructionBus = memDataBus
-                    report "Bad 'Instruction Bus' value " & to_string(instructionBus) & 
-                        ", expected " & to_string(test_pattern(i).memDataBus) &
-                        " at test pattern index " & integer'image(i) severity error;
-            elsif opcode = fetchLDD then
-                assert cpuDataBus = memDataBus
+            assert std_match(instructionBus, test_pattern(i).instructionBus)
+                report "Bad 'Instruction Bus' value " & to_string(instructionBus) & 
+                    ", expected " & to_string(test_pattern(i).instructionBus) &
+                    " at test pattern index " & integer'image(i) severity error;
+            
+            if opcode = fetchLDD then
+                assert std_match(cpuDataBus, memDataBus)
                     report "Bad 'CPU Data Bus' value " & to_string(cpuDataBus) & 
                         ", expected " & to_string(test_pattern(i).memDataBus) &
                         " at test pattern index " & integer'image(i) severity error;
             elsif opcode = fetchSTD then
-                assert memDataBus = cpuDataBus
+                assert std_match(memDataBus, cpuDataBus)
                     report "Bad 'Memory Data Bus' value " & to_string(memDataBus) & 
                         ", expected " & to_string(test_pattern(i).cpuDataBus) &
                         " at test pattern index " & integer'image(i) severity error;

@@ -8,6 +8,7 @@ entity fetchUnit is
     port (
         clk             : in std_logic;
         opCode          : in std_logic_vector(fetchOpWidth-1 downto 0);
+        addrBusLock     : in std_logic;
         cpuAddrBus      : in std_logic_vector(fetchAddrBusWidth-1 downto 0);
         cpuDataBus      : inout std_logic_vector(fetchDataBusWidth-1 downto 0);
         memEn           : out std_logic;
@@ -20,7 +21,12 @@ end fetchUnit;
 
 architecture rtl of fetchUnit is
 begin
-    memAddrBus <= cpuAddrBus;
+    addrBusLocking : process (clk) is
+    begin
+        if rising_edge(clk) and addrBusLock = '1' then
+            memAddrBus <= cpuAddrBus;
+        end if;
+    end process;
 
     enableSignals : process (opCode) is
     begin
