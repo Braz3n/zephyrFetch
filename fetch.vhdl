@@ -14,7 +14,8 @@ entity fetchUnit is
         memEn           : out std_logic;
         memWriteEn      : out std_logic;
         memAddrBus      : out std_logic_vector(fetchAddrBusWidth-1 downto 0);
-        memDataBus      : inout std_logic_vector(fetchDataBusWidth-1 downto 0);
+        memDataBusIn    : out std_logic_vector(fetchDataBusWidth-1 downto 0);
+        memDataBusOut   : in std_logic_vector(fetchDataBusWidth-1 downto 0);
         instructionBus  : out std_logic_vector(fetchInstructionWidth-1 downto 0)
     );
 end fetchUnit;
@@ -42,16 +43,16 @@ begin
         end if;
     end process;
 
-    readFromMemory : process (clk) is
+    readFromMemory : process (clk, opCode, memDataBusOut) is
     begin
         if rising_edge(clk) then
             if opCode = fetchLDI then
-                instructionBus <= memDataBus;
+                instructionBus <= memDataBusOut;
             end if;
         end if;
 
         if opCode = fetchLDD then
-            cpuDataBus <= memDataBus;
+            cpuDataBus <= memDataBusOut;
         else
             cpuDataBus <= (others => 'Z');
         end if;
@@ -61,9 +62,9 @@ begin
     begin
         if rising_edge(clk) then
             if opCode = fetchSTD then
-                memDataBus <= cpuDataBus;
+                memDataBusIn <= cpuDataBus;
             else
-                memDataBus <= (others => 'Z');
+                memDataBusIn <= (others => 'Z');
             end if;
         end if;
     end process;
