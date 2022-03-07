@@ -6,6 +6,7 @@ use ieee.numeric_std.all;
 
 entity fetchUnit is
     port (
+        rst             : in std_logic;
         clk             : in std_logic;
         opCode          : in std_logic_vector(fetchOpWidth-1 downto 0);
         addrBusLock     : in std_logic;
@@ -21,11 +22,17 @@ entity fetchUnit is
 end fetchUnit;
 
 architecture rtl of fetchUnit is
+    signal instructionBusReg : std_logic_vector(fetchInstructionWidth-1 downto 0) := (others => '0');
+    signal instructionBusTmp : std_logic_vector(fetchInstructionWidth-1 downto 0) := (others => '0');
 begin
     addrBusLocking : process (clk) is
     begin
-        if rising_edge(clk) and addrBusLock = '1' then
-            memAddrBus <= cpuAddrBus;
+        if rst = '1' then
+            memAddrBus <= (others => '0');
+        elsif rising_edge(clk) then 
+            if addrBusLock = '1' then
+                memAddrBus <= cpuAddrBus;
+            end if;
         end if;
     end process;
 
@@ -42,15 +49,20 @@ begin
             memWriteEn <= '0';
         end if;
     end process;
-
-    readFromMemory : process (clk, opCode, memDataBusOut) is
+    
+    readInstructionFromMemory : process (clk, opCode) is
     begin
-        if rising_edge(clk) then
+        if rst = '1' then
+            instructionBus <= (others => '0');
+        elsif rising_edge(clk) then
             if opCode = fetchLDI then
                 instructionBus <= memDataBusOut;
             end if;
         end if;
+    end process;
 
+    readDataFromMemory : process (opCode, memDataBusOut) is
+    begin
         if opCode = fetchLDD then
             cpuDataBus <= memDataBusOut;
         else
@@ -60,7 +72,9 @@ begin
 
     writeToMemory : process (clk) is
     begin
-        if rising_edge(clk) then
+        if rst = '1' then
+            memDataBusIn <= (others => 'Z');
+        elsif rising_edge(clk) then
             if opCode = fetchSTD then
                 memDataBusIn <= cpuDataBus;
             else
